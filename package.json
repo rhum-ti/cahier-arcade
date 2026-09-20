@@ -1,0 +1,16 @@
+{
+  "name": "cahier-arcade",
+  "version": "1.0.0",
+  "description": "Le Petit Cahier — Arcade : jeu de vocabulaire FR/KO",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "npx --yes serve ."
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0",
+    "vitest": "^2.1.0"
+  }
+}
