@@ -1,14 +1,19 @@
 /* ---------- DOM rendering & state ---------- */
-import { ALL_VOCAB, LEVEL_NAMES, THEME_SESSIONS } from "./data.js";
+import { loadAllVocab, LEVEL_NAMES, THEME_SESSIONS } from "./data.js";
 import {
   buildPool, buildSessionPool, createDirectionPicker, genTranslationQuestion,
   loadBest, saveBest, loadStreak, loadDone, markDone
 } from "./game.js";
 
+/* How many words per level enter an endless-mode pool. Keeps level progression snappy
+   regardless of the underlying vocab size (see buildPool's perLevel param). */
+const WORDS_PER_LEVEL = 25;
+
 const app = document.getElementById("app");
 let best = loadBest();
 let streakDays = loadStreak();
 let doneThemes = loadDone();
+let allVocab = null;
 
 let pool=[], chain=0, score=0, multiplier=1, locked=false, current=null;
 let timerId=null, timeLimit=6000, remaining=6000;
@@ -38,9 +43,64 @@ function renderHome(){
         </span>
         <span class="badge">${THEME_SESSIONS.length} défis</span>
       </button>
+      <button class="back" id="creditsLink" style="align-self:center; margin-top:6px;">Crédits</button>
     </div>`;
-  document.getElementById("cardTrad").onclick = renderLevelSelect;
+  document.getElementById("cardTrad").onclick = goToLevelSelect;
   document.getElementById("cardTheme").onclick = renderThemeList;
+  document.getElementById("creditsLink").onclick = renderCredits;
+}
+
+/* Ensures the (large, lazily-fetched) endless-mode vocab is loaded before showing level
+   select, since level select leads straight into a run that needs it. */
+async function goToLevelSelect(){
+  if(allVocab){ renderLevelSelect(); return; }
+  renderLoading();
+  try{
+    allVocab = await loadAllVocab();
+    renderLevelSelect();
+  }catch(err){
+    renderLoadError(err);
+  }
+}
+
+function renderLoading(){
+  app.innerHTML = `
+    <div class="screen stub-screen">
+      <div class="stub-emoji">📖</div>
+      <div class="stub-title">Chargement…</div>
+      <p class="stub-text">Préparation du vocabulaire.</p>
+    </div>`;
+}
+
+function renderLoadError(err){
+  app.innerHTML = `
+    <div class="screen stub-screen">
+      <div class="stub-emoji">⚠️</div>
+      <div class="stub-title">Chargement impossible</div>
+      <p class="stub-text">Le vocabulaire n'a pas pu être chargé. Vérifie ta connexion et réessaie.</p>
+      <div class="btn-row">
+        <button class="btn3d" id="retryLoadBtn">Réessayer</button>
+        <button class="back" id="backHomeBtn">Accueil</button>
+      </div>
+    </div>`;
+  document.getElementById("retryLoadBtn").onclick = goToLevelSelect;
+  document.getElementById("backHomeBtn").onclick = renderHome;
+}
+
+function renderCredits(){
+  app.innerHTML = `
+    <div class="screen home-screen">
+      <button class="back" id="backBtn">← Retour</button>
+      <h1 class="home-title" style="font-size:1.6rem; margin-top:10px;">Crédits</h1>
+      <p class="home-sub">
+        Le vocabulaire du mode Traduction (8000 mots) est dérivé de
+        <strong>Lexique 3.83</strong> (New, Pallier, Brysbaert, Ferrand — lexique.org),
+        sous licence CC BY-SA 4.0. Niveaux A1-C1 approximatifs, basés sur la fréquence
+        d'usage, pas une certification CEFR officielle. Traductions coréennes générées puis
+        vérifiées par relecture. Détails complets dans data/LICENSE-DATA.md.
+      </p>
+    </div>`;
+  document.getElementById("backBtn").onclick = renderHome;
 }
 
 /* ---------- Theme list ---------- */
@@ -89,7 +149,7 @@ function renderLevelSelect(){
 /* ---------- Run ---------- */
 function startTranslationRun(startLevel){
   mode="endless"; activeSession=null;
-  pool = buildPool(startLevel, ALL_VOCAB);
+  pool = buildPool(startLevel, allVocab, 4, WORDS_PER_LEVEL);
   chain=0; score=0; multiplier=1; locked=false; lastMistake=null;
   directionPicker = createDirectionPicker();
   nextQuestion();
@@ -106,7 +166,7 @@ function startThemedRun(session){
 function nextQuestion(){
   if(pool.length===0){ endRun(true); return; }
   const item = pool.shift();
-  const sourcePool = mode==="theme" ? activeSession.words : ALL_VOCAB;
+  const sourcePool = mode==="theme" ? activeSession.words : allVocab;
   current = genTranslationQuestion(item, sourcePool, directionPicker);
   timeLimit = Math.max(3500, 9000 - chain*60);
   remaining = timeLimit;
@@ -221,7 +281,7 @@ function renderEnd(isRecord, exhausted){
   const themeDone = mode==="theme" && exhausted;
   let chainMsg;
   if(mode==="endless"){
-    chainMsg = exhausted ? "Tous les mots disponibles sont vus — bravo !" : `Chaîne : ${chain} mot${chain>1?"s":""}`;
+    chainMsg = exhausted ? "Série sans faute jusqu'au bout — bravo !" : `Chaîne : ${chain} mot${chain>1?"s":""}`;
   } else {
     chainMsg = themeDone ? `Défi terminé : ${activeSession.title} 🎉` : `Interrompu à ${chain} / ${activeSession.words.length} mots`;
   }

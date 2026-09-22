@@ -1,7 +1,15 @@
-import { describe, it, expect } from "vitest";
-import { ALL_VOCAB, LEVEL_NAMES, THEME_SESSIONS } from "../js/data.js";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
-describe("ALL_VOCAB", () => {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const VOCAB_JSON_PATH = path.join(__dirname, "..", "data", "vocab.json");
+const ALL_VOCAB = JSON.parse(readFileSync(VOCAB_JSON_PATH, "utf-8"));
+
+import { LEVEL_NAMES, THEME_SESSIONS, loadAllVocab } from "../js/data.js";
+
+describe("data/vocab.json (endless-mode vocabulary)", () => {
   it("every entry has a non-empty fr, ko, and a numeric lvl", () => {
     ALL_VOCAB.forEach(v => {
       expect(typeof v.fr).toBe("string");
@@ -36,6 +44,83 @@ describe("ALL_VOCAB", () => {
       return false;
     });
     expect(dupes).toEqual([]);
+  });
+
+  it("has no HTML-unsafe characters (data is injected via innerHTML, unescaped)", () => {
+    const unsafe = ALL_VOCAB.filter(v => /[<>&]/.test(v.fr) || /[<>&]/.test(v.ko));
+    expect(unsafe).toEqual([]);
+  });
+
+  it("has no leftover placeholder values from the generation pipeline", () => {
+    const placeholders = ALL_VOCAB.filter(v => v.fr === "SKIP" || v.ko === "SKIP");
+    expect(placeholders).toEqual([]);
+  });
+
+  it("has exactly 8000 words split 1000/1000/1500/1500/3000 across A1-C1", () => {
+    expect(ALL_VOCAB).toHaveLength(8000);
+    const counts = [0, 1, 2, 3, 4].map(lvl => ALL_VOCAB.filter(v => v.lvl === lvl).length);
+    expect(counts).toEqual([1000, 1000, 1500, 1500, 3000]);
+  });
+});
+
+describe("loadAllVocab", () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("fetches data/vocab.json and returns the parsed array", async () => {
+    const fakeData = [{ fr: "a", ko: "가", lvl: 0 }];
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(fakeData),
+    });
+    const { loadAllVocab: freshLoad } = await import("../js/data.js?fresh1");
+    const result = await freshLoad();
+    expect(result).toEqual(fakeData);
+    expect(global.fetch).toHaveBeenCalledWith("data/vocab.json");
+  });
+
+  it("caches the result: a second call does not fetch again", async () => {
+    const fakeData = [{ fr: "a", ko: "가", lvl: 0 }];
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(fakeData),
+    });
+    const { loadAllVocab: freshLoad } = await import("../js/data.js?fresh2");
+    await freshLoad();
+    await freshLoad();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects and allows a retry (does not cache failures) on a non-OK response", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    const { loadAllVocab: freshLoad } = await import("../js/data.js?fresh3");
+    await expect(freshLoad()).rejects.toThrow();
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ fr: "a", ko: "가", lvl: 0 }]),
+    });
+    await expect(freshLoad()).resolves.toEqual([{ fr: "a", ko: "가", lvl: 0 }]);
+  });
+
+  it("rejects and allows a retry on a network error", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("network error"));
+    const { loadAllVocab: freshLoad } = await import("../js/data.js?fresh4");
+    await expect(freshLoad()).rejects.toThrow();
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([{ fr: "a", ko: "가", lvl: 0 }]),
+    });
+    await expect(freshLoad()).resolves.toEqual([{ fr: "a", ko: "가", lvl: 0 }]);
   });
 });
 

@@ -63,6 +63,22 @@ describe("buildPool", () => {
   it("returns an empty pool when startLevel exceeds maxLevel", () => {
     expect(buildPool(4, vocab, 3)).toEqual([]);
   });
+
+  it("caps words per level when perLevel is given, instead of including every word", () => {
+    const bigVocab = [
+      ...Array.from({ length: 50 }, (_, i) => ({ fr: `a${i}`, ko: `${i}`, lvl: 0 })),
+      ...Array.from({ length: 50 }, (_, i) => ({ fr: `b${i}`, ko: `${i}`, lvl: 1 })),
+    ];
+    const pool = buildPool(0, bigVocab, 1, 10);
+    expect(pool).toHaveLength(20);
+    expect(pool.filter(v => v.lvl === 0)).toHaveLength(10);
+    expect(pool.filter(v => v.lvl === 1)).toHaveLength(10);
+  });
+
+  it("with perLevel, still returns every word when a level has fewer than the cap", () => {
+    const pool = buildPool(0, vocab, 0, 10);
+    expect(pool).toHaveLength(2); // only 2 words at lvl 0 in the fixture
+  });
 });
 
 describe("createDirectionPicker", () => {

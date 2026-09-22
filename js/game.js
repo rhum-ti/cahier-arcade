@@ -8,10 +8,15 @@ export function shuffle(arr){
 
 export function sample(arr,n){ return shuffle(arr).slice(0,n); }
 
-export function buildPool(startLevel, vocab, maxLevel=4){
+/* perLevel caps how many words from each level enter the pool. Without a cap, a level with
+   thousands of words (e.g. the full frequency-based vocab) would have to be fully exhausted
+   before the run ever advances to the next level — perLevel keeps level progression snappy
+   regardless of how large the underlying word list is. */
+export function buildPool(startLevel, vocab, maxLevel=4, perLevel=null){
   const pool=[];
   for(let lvl=startLevel; lvl<=maxLevel; lvl++){
-    pool.push(...shuffle(vocab.filter(v=>v.lvl===lvl)));
+    const levelWords = vocab.filter(v=>v.lvl===lvl);
+    pool.push(...(perLevel==null ? shuffle(levelWords) : sample(levelWords, perLevel)));
   }
   return pool;
 }

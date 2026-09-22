@@ -1,32 +1,23 @@
 /* ---------- Vocabulary data ---------- */
 
-export const ALL_VOCAB = [
-  {fr:"bonjour", ko:"안녕하세요", lvl:0}, {fr:"merci", ko:"감사합니다", lvl:0},
-  {fr:"s'il vous plaît", ko:"부탁합니다", lvl:0}, {fr:"oui", ko:"네", lvl:0},
-  {fr:"non", ko:"아니요", lvl:0}, {fr:"maison", ko:"집", lvl:0},
-  {fr:"eau", ko:"물", lvl:0}, {fr:"pomme", ko:"사과", lvl:0},
-  {fr:"chat", ko:"고양이", lvl:0}, {fr:"aujourd'hui", ko:"오늘", lvl:0},
-  {fr:"travailler", ko:"일하다", lvl:1}, {fr:"acheter", ko:"사다", lvl:1},
-  {fr:"voyager", ko:"여행하다", lvl:1}, {fr:"rencontrer", ko:"만나다", lvl:1},
-  {fr:"cuisine", ko:"부엌", lvl:1}, {fr:"quartier", ko:"동네", lvl:1},
-  {fr:"horaire", ko:"시간표", lvl:1}, {fr:"rendez-vous", ko:"약속", lvl:1},
-  {fr:"circulation", ko:"교통", lvl:1}, {fr:"facture", ko:"청구서", lvl:1},
-  {fr:"environnement", ko:"환경", lvl:2}, {fr:"développement", ko:"발전", lvl:2},
-  {fr:"néanmoins", ko:"그럼에도 불구하고", lvl:2}, {fr:"parvenir", ko:"도달하다", lvl:2},
-  {fr:"souligner", ko:"강조하다", lvl:2}, {fr:"enjeu", ko:"쟁점", lvl:2},
-  {fr:"méfiance", ko:"불신", lvl:2}, {fr:"s'engager", ko:"전념하다", lvl:2},
-  {fr:"autrui", ko:"타인", lvl:2}, {fr:"davantage", ko:"더욱", lvl:2},
-  {fr:"paradoxe", ko:"역설", lvl:3}, {fr:"s'avérer", ko:"판명되다", lvl:3},
-  {fr:"controverse", ko:"논쟁", lvl:3}, {fr:"dissuader", ko:"단념시키다", lvl:3},
-  {fr:"ambiguïté", ko:"모호함", lvl:3}, {fr:"plaidoyer", ko:"변론", lvl:3},
-  {fr:"scinder", ko:"분리하다", lvl:3}, {fr:"tributaire", ko:"달려있는", lvl:3},
-  {fr:"révolu", ko:"지나간", lvl:3}, {fr:"inéluctable", ko:"불가피한", lvl:3},
-  {fr:"idiosyncrasie", ko:"특이성", lvl:4}, {fr:"circonlocution", ko:"완곡어법", lvl:4},
-  {fr:"tergiverser", ko:"우물쭈물하다", lvl:4}, {fr:"fustiger", ko:"맹비난하다", lvl:4},
-  {fr:"prégnant", ko:"강렬한", lvl:4}, {fr:"subreptice", ko:"은밀한", lvl:4},
-  {fr:"velléité", ko:"막연한 의도", lvl:4}, {fr:"diaphane", ko:"투명한", lvl:4},
-  {fr:"byzantin", ko:"쓸데없이 복잡한", lvl:4}, {fr:"acabit", ko:"부류", lvl:4}
-];
+/* The endless-mode vocabulary (8000 French words, A1-C1, with Korean translations) lives in
+   data/vocab.json rather than inline here — see data/LICENSE-DATA.md for its license
+   (CC BY-SA 4.0, derived from Lexique 3.83) and methodology. It's fetched lazily and cached,
+   since it's ~500KB and most visits only need it if the player picks "Traduction". */
+const VOCAB_URL = "data/vocab.json";
+let vocabPromise = null;
+
+export function loadAllVocab(){
+  if(!vocabPromise){
+    vocabPromise = fetch(VOCAB_URL)
+      .then(res => {
+        if(!res.ok) throw new Error(`Impossible de charger le vocabulaire (HTTP ${res.status})`);
+        return res.json();
+      })
+      .catch(err => { vocabPromise = null; throw err; });
+  }
+  return vocabPromise;
+}
 
 export const LEVEL_NAMES = ["A1","A2","B1","B2","C1","C2"];
 
