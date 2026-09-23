@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://rhum-ti.github.io/cahier-arcade/sitemap.xml
