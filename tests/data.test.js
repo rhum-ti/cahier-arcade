@@ -60,6 +60,23 @@ describe("data/vocab.json (endless-mode vocabulary)", () => {
     const counts = [0, 1, 2, 3, 4].map(lvl => ALL_VOCAB.filter(v => v.lvl === lvl).length);
     expect(counts).toEqual([1000, 1000, 1500, 1500, 3000]);
   });
+
+  it("cardinal numbers don't leak the Arabic digit in their own translation", () => {
+    // Month names, fractions ("4분의 1") and approximations ("40세가량") legitimately use
+    // digits in Korean — but a number word like "onze" spelling out "11" next to "열하나"
+    // just hands the answer to anyone who can read Arabic numerals.
+    const CARDINALS = [
+      "zéro","un","une","deux","trois","quatre","cinq","six","sept","huit","neuf","dix",
+      "onze","douze","treize","quatorze","quinze","seize","dix-sept","dix-huit","dix-neuf",
+      "vingt","trente","quarante","cinquante","soixante","cent","mille",
+    ];
+    const byFr = new Map(ALL_VOCAB.map(v => [v.fr, v.ko]));
+    const leaky = CARDINALS
+      .filter(fr => byFr.has(fr))
+      .map(fr => ({ fr, ko: byFr.get(fr) }))
+      .filter(({ ko }) => /[0-9]/.test(ko));
+    expect(leaky).toEqual([]);
+  });
 });
 
 describe("STARTER_VOCAB (Débutant level, below A1)", () => {
@@ -90,6 +107,11 @@ describe("STARTER_VOCAB (Débutant level, below A1)", () => {
   it("has no HTML-unsafe characters", () => {
     const unsafe = STARTER_VOCAB.filter(v => /[<>&]/.test(v.fr) || /[<>&]/.test(v.ko));
     expect(unsafe).toEqual([]);
+  });
+
+  it("number words don't leak the Arabic digit (e.g. 'deux' -> '둘', not '둘, 2')", () => {
+    const leaky = STARTER_VOCAB.filter(v => /[0-9]/.test(v.ko));
+    expect(leaky).toEqual([]);
   });
 });
 

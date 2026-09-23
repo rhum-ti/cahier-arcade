@@ -50,11 +50,11 @@ export const STARTER_VOCAB = [
   {fr:"frère", ko:"형제, 오빠·형", lvl:-1}, {fr:"sœur", ko:"자매, 언니·누나", lvl:-1},
   {fr:"famille", ko:"가족", lvl:-1},
 
-  {fr:"un", ko:"하나, 1", lvl:-1}, {fr:"deux", ko:"둘, 2", lvl:-1},
-  {fr:"trois", ko:"셋, 3", lvl:-1}, {fr:"quatre", ko:"넷, 4", lvl:-1},
-  {fr:"cinq", ko:"다섯, 5", lvl:-1}, {fr:"six", ko:"여섯, 6", lvl:-1},
-  {fr:"sept", ko:"일곱, 7", lvl:-1}, {fr:"huit", ko:"여덟, 8", lvl:-1},
-  {fr:"neuf", ko:"아홉, 9", lvl:-1}, {fr:"dix", ko:"열, 10", lvl:-1},
+  {fr:"un", ko:"하나", lvl:-1}, {fr:"deux", ko:"둘", lvl:-1},
+  {fr:"trois", ko:"셋", lvl:-1}, {fr:"quatre", ko:"넷", lvl:-1},
+  {fr:"cinq", ko:"다섯", lvl:-1}, {fr:"six", ko:"여섯", lvl:-1},
+  {fr:"sept", ko:"일곱", lvl:-1}, {fr:"huit", ko:"여덟", lvl:-1},
+  {fr:"neuf", ko:"아홉", lvl:-1}, {fr:"dix", ko:"열", lvl:-1},
 
   {fr:"rouge", ko:"빨간색", lvl:-1}, {fr:"bleu", ko:"파란색", lvl:-1},
   {fr:"vert", ko:"초록색", lvl:-1}, {fr:"jaune", ko:"노란색", lvl:-1},
