@@ -75,21 +75,32 @@ export const STORE_DONE = "cahierarcade_theme_done";
 export function loadBest(){ try{ return parseInt(localStorage.getItem(STORE_BEST)||"0",10); }catch(e){ return 0; } }
 export function saveBest(v){ try{ localStorage.setItem(STORE_BEST, String(v)); }catch(e){} }
 
+/* localStorage is trusted for shape but not for type: a hand-edited or corrupted value
+   (via devtools, or an old format from a future version of this app) must never come back
+   out as something other than the type the caller expects — count is always a finite
+   number here, never whatever raw value happened to be stored, since callers interpolate
+   it straight into innerHTML with no further check. */
 export function loadStreak(){
   try{
     const raw = localStorage.getItem(STORE_STREAK);
-    const data = raw ? JSON.parse(raw) : {count:0,last:null};
+    const parsed = raw ? JSON.parse(raw) : {};
+    const count = Number.isFinite(parsed.count) ? parsed.count : 0;
+    const last = typeof parsed.last==="string" ? parsed.last : null;
     const today = new Date().toISOString().slice(0,10);
-    if(data.last===today) return data.count;
+    if(last===today) return count;
     const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
-    data.count = (data.last===yesterday) ? data.count+1 : 1;
-    data.last = today;
-    localStorage.setItem(STORE_STREAK, JSON.stringify(data));
-    return data.count;
+    const nextCount = (last===yesterday) ? count+1 : 1;
+    localStorage.setItem(STORE_STREAK, JSON.stringify({count:nextCount, last:today}));
+    return nextCount;
   }catch(e){ return 1; }
 }
 
-export function loadDone(){ try{ return JSON.parse(localStorage.getItem(STORE_DONE)||"[]"); }catch(e){ return []; } }
+export function loadDone(){
+  try{
+    const parsed = JSON.parse(localStorage.getItem(STORE_DONE)||"[]");
+    return Array.isArray(parsed) ? parsed.filter(x=>typeof x==="string") : [];
+  }catch(e){ return []; }
+}
 export function markDone(id){
   try{
     const done = loadDone();
@@ -103,7 +114,13 @@ export const STORE_LEADERBOARD = "cahierarcade_leaderboard";
 const LEADERBOARD_MAX = 10;
 
 export function loadLeaderboard(){
-  try{ return JSON.parse(localStorage.getItem(STORE_LEADERBOARD)||"[]"); }catch(e){ return []; }
+  try{
+    const parsed = JSON.parse(localStorage.getItem(STORE_LEADERBOARD)||"[]");
+    if(!Array.isArray(parsed)) return [];
+    // ui.js renders .name and .score straight into innerHTML with no further check —
+    // reject any entry that isn't shaped the way this module itself ever writes one.
+    return parsed.filter(e => e && typeof e.name==="string" && Number.isFinite(e.score));
+  }catch(e){ return []; }
 }
 export function saveLeaderboard(entries){
   try{ localStorage.setItem(STORE_LEADERBOARD, JSON.stringify(entries)); }catch(e){}

@@ -272,7 +272,55 @@ describe("storage helpers", () => {
     expect(loadStreak()).toBe(1);
   });
 
+  it("loadStreak always returns a genuine number, even if the stored value is tampered with", () => {
+    // Security regression: ui.js interpolates loadStreak()'s return value straight into
+    // innerHTML with no escaping. A hand-edited localStorage value used to be able to smuggle
+    // arbitrary HTML/script through here (self-XSS via a pasted devtools payload).
+    vi.useFakeTimers();
+    const today = "2026-01-10";
+    vi.setSystemTime(new Date(`${today}T12:00:00Z`));
+    localStorage.setItem(STORE_STREAK, JSON.stringify({ count:"<img src=x onerror=alert(1)>", last:today }));
+    const result = loadStreak();
+    expect(typeof result).toBe("number");
+    expect(Number.isFinite(result)).toBe(true);
+  });
+
+  it("loadStreak treats a non-numeric stored count as 0 before continuing the streak", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-10T12:00:00Z"));
+    localStorage.setItem(STORE_STREAK, JSON.stringify({ count:"garbage", last:"2026-01-09" }));
+    expect(loadStreak()).toBe(1); // "2026-01-09" is yesterday, so count(=>0)+1
+  });
+
+  it("loadDone ignores a tampered non-array value instead of crashing callers", () => {
+    localStorage.setItem(STORE_DONE, JSON.stringify({ not:"an array" }));
+    expect(loadDone()).toEqual([]);
+  });
+
+  it("loadDone drops non-string entries from a tampered array", () => {
+    localStorage.setItem(STORE_DONE, JSON.stringify(["real-theme", 42, { evil:true }, null]));
+    expect(loadDone()).toEqual(["real-theme"]);
+  });
+
   it("loadLeaderboard defaults to an empty array", () => {
+    expect(loadLeaderboard()).toEqual([]);
+  });
+
+  it("loadLeaderboard drops entries with a non-string name or non-numeric score", () => {
+    // Security regression: ui.js renders entry.score straight into innerHTML with no
+    // escaping (score is trusted to always be a number) — a tampered non-numeric score
+    // used to be able to smuggle arbitrary HTML/script through here too.
+    localStorage.setItem(STORE_LEADERBOARD, JSON.stringify([
+      { name:"OK", score:100 },
+      { name:"<img src=x onerror=alert(1)>", score:"also bad" },
+      { name:123, score:50 },
+      "not even an object",
+    ]));
+    expect(loadLeaderboard()).toEqual([{ name:"OK", score:100 }]);
+  });
+
+  it("loadLeaderboard ignores a tampered non-array value", () => {
+    localStorage.setItem(STORE_LEADERBOARD, JSON.stringify({ not:"an array" }));
     expect(loadLeaderboard()).toEqual([]);
   });
 
