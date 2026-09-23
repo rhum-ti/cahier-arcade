@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   shuffle, sample, buildPool, createDirectionPicker, pickDistractorPool,
-  genTranslationQuestion, buildSessionPool,
+  genTranslationQuestion, buildSessionPool, baseScore,
   loadBest, saveBest, loadStreak, loadDone, markDone,
   STORE_BEST, STORE_STREAK, STORE_DONE,
 } from "../js/game.js";
@@ -179,6 +179,19 @@ describe("genTranslationQuestion", () => {
     expect(q.dir).toBe("KO → FR");
     expect(q.word).toBe(item.ko);
     expect(q.correct).toBe(item.fr);
+  });
+});
+
+describe("baseScore", () => {
+  it("is positive even for the lowest playable level (lvl:-1, Débutant)", () => {
+    expect(baseScore(-1)).toBeGreaterThan(0);
+  });
+
+  it("increases with level", () => {
+    const scores = [-1, 0, 1, 2, 3, 4].map(baseScore);
+    for (let i = 1; i < scores.length; i++) {
+      expect(scores[i]).toBeGreaterThan(scores[i - 1]);
+    }
   });
 });
 

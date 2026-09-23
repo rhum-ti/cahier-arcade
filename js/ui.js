@@ -1,7 +1,7 @@
 /* ---------- DOM rendering & state ---------- */
-import { loadAllVocab, LEVEL_NAMES, THEME_SESSIONS } from "./data.js";
+import { loadAllVocab, LEVELS, levelName, STARTER_VOCAB, THEME_SESSIONS } from "./data.js";
 import {
-  buildPool, buildSessionPool, createDirectionPicker, genTranslationQuestion,
+  buildPool, buildSessionPool, createDirectionPicker, genTranslationQuestion, baseScore,
   loadBest, saveBest, loadStreak, loadDone, markDone
 } from "./game.js";
 
@@ -56,7 +56,7 @@ async function goToLevelSelect(){
   if(allVocab){ renderLevelSelect(); return; }
   renderLoading();
   try{
-    allVocab = await loadAllVocab();
+    allVocab = [...STARTER_VOCAB, ...await loadAllVocab()];
     renderLevelSelect();
   }catch(err){
     renderLoadError(err);
@@ -137,7 +137,7 @@ function renderLevelSelect(){
       <div class="lvl-title">Par quel niveau on commence ?</div>
       <p class="lvl-sub">La difficulté grimpe automatiquement ensuite — record : ${best} · 🔥 ${streakDays} jour${streakDays>1?"s":""} de suite</p>
       <div class="lvl-grid" id="lvlGrid">
-        ${LEVEL_NAMES.slice(0,5).map((l,i)=>`<button class="lvl-chip" data-lvl="${i}">${l}</button>`).join("")}
+        ${LEVELS.map(l=>`<button class="lvl-chip" data-lvl="${l.lvl}">${l.name}</button>`).join("")}
       </div>
     </div>`;
   document.getElementById("backBtn").onclick = renderHome;
@@ -206,7 +206,7 @@ function renderRun(){
     <div class="screen run-screen">
       <div class="run-top">
         <div class="run-head-row">
-          <span class="lvl-badge">${mode==="theme" ? activeSession.title : LEVEL_NAMES[current.lvl]}</span>
+          <span class="lvl-badge">${mode==="theme" ? activeSession.title : levelName(current.lvl)}</span>
           <span class="mult-tag">x${multiplier}</span>
         </div>
         <div class="timerbar-track"><div class="timerbar-fill" id="timerFill"></div></div>
@@ -241,7 +241,7 @@ function handleAnswer(opt, btnEl){
   if(correct){
     chain++;
     if(chain%5===0){ multiplier*=2; showCombo("COMBO x"+multiplier); }
-    const base = (current.lvl+1)*10;
+    const base = baseScore(current.lvl);
     score += base*multiplier;
     animateScore();
     setTimeout(nextQuestion, 380);

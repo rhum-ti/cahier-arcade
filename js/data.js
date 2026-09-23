@@ -19,7 +19,69 @@ export function loadAllVocab(){
   return vocabPromise;
 }
 
-export const LEVEL_NAMES = ["A1","A2","B1","B2","C1","C2"];
+/* Ordered list of playable endless-mode levels. Using explicit {lvl, name} pairs (rather than
+   assuming lvl is a 0-based array index) is what lets a level sit *below* A1 without renumbering
+   the whole frequency-based dataset: STARTER_VOCAB below uses lvl:-1 for exactly that reason. */
+export const LEVELS = [
+  { lvl:-1, name:"Débutant" },
+  { lvl:0, name:"A1" },
+  { lvl:1, name:"A2" },
+  { lvl:2, name:"B1" },
+  { lvl:3, name:"B2" },
+  { lvl:4, name:"C1" },
+];
+
+export function levelName(lvl){
+  const found = LEVELS.find(l => l.lvl===lvl);
+  return found ? found.name : "?";
+}
+
+/* Hand-picked "first words" (greetings, numbers, colors, family, everyday objects) — easier and
+   more concrete than data/vocab.json's own A1 tier, which is frequency-ranked and so mixes in
+   abstract verbs (falloir, devoir...) a total beginner hasn't earned yet. Small enough to stay
+   inline rather than fetched. */
+export const STARTER_VOCAB = [
+  {fr:"bonjour", ko:"안녕하세요", lvl:-1}, {fr:"bonsoir", ko:"안녕하세요 (저녁 인사)", lvl:-1},
+  {fr:"salut", ko:"안녕 (반말)", lvl:-1}, {fr:"merci", ko:"감사합니다", lvl:-1},
+  {fr:"s'il vous plaît", ko:"부탁합니다", lvl:-1}, {fr:"pardon", ko:"죄송합니다, 실례합니다", lvl:-1},
+  {fr:"oui", ko:"네", lvl:-1}, {fr:"non", ko:"아니요", lvl:-1},
+
+  {fr:"maman", ko:"엄마", lvl:-1}, {fr:"papa", ko:"아빠", lvl:-1},
+  {fr:"frère", ko:"형제, 오빠·형", lvl:-1}, {fr:"sœur", ko:"자매, 언니·누나", lvl:-1},
+  {fr:"famille", ko:"가족", lvl:-1},
+
+  {fr:"un", ko:"하나, 1", lvl:-1}, {fr:"deux", ko:"둘, 2", lvl:-1},
+  {fr:"trois", ko:"셋, 3", lvl:-1}, {fr:"quatre", ko:"넷, 4", lvl:-1},
+  {fr:"cinq", ko:"다섯, 5", lvl:-1}, {fr:"six", ko:"여섯, 6", lvl:-1},
+  {fr:"sept", ko:"일곱, 7", lvl:-1}, {fr:"huit", ko:"여덟, 8", lvl:-1},
+  {fr:"neuf", ko:"아홉, 9", lvl:-1}, {fr:"dix", ko:"열, 10", lvl:-1},
+
+  {fr:"rouge", ko:"빨간색", lvl:-1}, {fr:"bleu", ko:"파란색", lvl:-1},
+  {fr:"vert", ko:"초록색", lvl:-1}, {fr:"jaune", ko:"노란색", lvl:-1},
+  {fr:"noir", ko:"검은색", lvl:-1}, {fr:"blanc", ko:"흰색", lvl:-1},
+  {fr:"rose", ko:"분홍색", lvl:-1},
+
+  {fr:"chat", ko:"고양이", lvl:-1}, {fr:"chien", ko:"개", lvl:-1},
+  {fr:"oiseau", ko:"새", lvl:-1}, {fr:"poisson", ko:"물고기", lvl:-1},
+
+  {fr:"eau", ko:"물", lvl:-1}, {fr:"pain", ko:"빵", lvl:-1},
+  {fr:"pomme", ko:"사과", lvl:-1}, {fr:"lait", ko:"우유", lvl:-1},
+  {fr:"sucre", ko:"설탕", lvl:-1},
+
+  {fr:"maison", ko:"집", lvl:-1}, {fr:"porte", ko:"문", lvl:-1},
+  {fr:"table", ko:"탁자, 테이블", lvl:-1}, {fr:"chaise", ko:"의자", lvl:-1},
+  {fr:"livre", ko:"책", lvl:-1}, {fr:"stylo", ko:"펜", lvl:-1},
+
+  {fr:"grand", ko:"큰", lvl:-1}, {fr:"petit", ko:"작은", lvl:-1},
+  {fr:"chaud", ko:"뜨거운, 더운", lvl:-1}, {fr:"froid", ko:"차가운, 추운", lvl:-1},
+
+  {fr:"manger", ko:"먹다", lvl:-1}, {fr:"boire", ko:"마시다", lvl:-1},
+  {fr:"dormir", ko:"자다", lvl:-1}, {fr:"jouer", ko:"놀다", lvl:-1},
+  {fr:"aimer", ko:"좋아하다, 사랑하다", lvl:-1},
+
+  {fr:"aujourd'hui", ko:"오늘", lvl:-1}, {fr:"demain", ko:"내일", lvl:-1},
+  {fr:"jour", ko:"낮, 날", lvl:-1}, {fr:"nuit", ko:"밤", lvl:-1},
+];
 
 /* Défis à thème — vocabulaire TCF Canada (B1→C2), classé par thème. */
 export const THEME_SESSIONS = [

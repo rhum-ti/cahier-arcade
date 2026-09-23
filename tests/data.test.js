@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VOCAB_JSON_PATH = path.join(__dirname, "..", "data", "vocab.json");
 const ALL_VOCAB = JSON.parse(readFileSync(VOCAB_JSON_PATH, "utf-8"));
 
-import { LEVEL_NAMES, THEME_SESSIONS, loadAllVocab } from "../js/data.js";
+import { LEVELS, levelName, STARTER_VOCAB, THEME_SESSIONS, loadAllVocab } from "../js/data.js";
 
 describe("data/vocab.json (endless-mode vocabulary)", () => {
   it("every entry has a non-empty fr, ko, and a numeric lvl", () => {
@@ -28,12 +28,11 @@ describe("data/vocab.json (endless-mode vocabulary)", () => {
     });
   });
 
-  it("covers every level referenced by LEVEL_NAMES (0..4)", () => {
+  it("covers every level from A1 to C1 (0..4)", () => {
     const levels = new Set(ALL_VOCAB.map(v => v.lvl));
     for (let lvl = 0; lvl <= 4; lvl++) {
       expect(levels.has(lvl)).toBe(true);
     }
-    expect(LEVEL_NAMES.length).toBeGreaterThanOrEqual(5);
   });
 
   it("has no duplicate French entries", () => {
@@ -60,6 +59,60 @@ describe("data/vocab.json (endless-mode vocabulary)", () => {
     expect(ALL_VOCAB).toHaveLength(8000);
     const counts = [0, 1, 2, 3, 4].map(lvl => ALL_VOCAB.filter(v => v.lvl === lvl).length);
     expect(counts).toEqual([1000, 1000, 1500, 1500, 3000]);
+  });
+});
+
+describe("STARTER_VOCAB (Débutant level, below A1)", () => {
+  it("every entry has a non-empty fr, ko, and lvl:-1", () => {
+    STARTER_VOCAB.forEach(v => {
+      expect(typeof v.fr).toBe("string");
+      expect(v.fr.length).toBeGreaterThan(0);
+      expect(typeof v.ko).toBe("string");
+      expect(v.ko.length).toBeGreaterThan(0);
+      expect(v.lvl).toBe(-1);
+    });
+  });
+
+  it("has enough words for 4-way multiple choice", () => {
+    expect(STARTER_VOCAB.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("has no duplicate French entries", () => {
+    const seen = new Set();
+    const dupes = STARTER_VOCAB.filter(v => {
+      if (seen.has(v.fr)) return true;
+      seen.add(v.fr);
+      return false;
+    });
+    expect(dupes).toEqual([]);
+  });
+
+  it("has no HTML-unsafe characters", () => {
+    const unsafe = STARTER_VOCAB.filter(v => /[<>&]/.test(v.fr) || /[<>&]/.test(v.ko));
+    expect(unsafe).toEqual([]);
+  });
+});
+
+describe("LEVELS / levelName", () => {
+  it("starts one level below A1 (lvl:-1) and ends at C1 (lvl:4)", () => {
+    expect(LEVELS[0]).toEqual({ lvl: -1, name: "Débutant" });
+    expect(LEVELS[LEVELS.length - 1]).toEqual({ lvl: 4, name: "C1" });
+  });
+
+  it("has a unique, contiguous lvl for every entry", () => {
+    const lvls = LEVELS.map(l => l.lvl);
+    expect(new Set(lvls).size).toBe(lvls.length);
+    for (let i = 1; i < lvls.length; i++) {
+      expect(lvls[i]).toBe(lvls[i - 1] + 1);
+    }
+  });
+
+  it("levelName resolves every level in LEVELS, including negative ones", () => {
+    LEVELS.forEach(l => expect(levelName(l.lvl)).toBe(l.name));
+  });
+
+  it("levelName falls back gracefully for an unknown level", () => {
+    expect(levelName(99)).toBe("?");
   });
 });
 

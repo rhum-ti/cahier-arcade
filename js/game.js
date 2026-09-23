@@ -59,6 +59,10 @@ export function genTranslationQuestion(item, sourcePool, directionPicker){
   return { dir:"KO → FR", word:item.ko, options:shuffle([item.fr,...distractors]), correct:item.fr, lvl:item.lvl };
 }
 
+/* Points awarded for a correct answer at a given level, before the combo multiplier.
+   +2 (not +1) so the lowest playable level (Débutant, lvl:-1) still scores above zero. */
+export function baseScore(lvl){ return (lvl+2)*10; }
+
 /* Generic finite-session pool builder (for themed "défis"): same mechanics,
    but draws from an exact word list rather than the endless leveled pool. */
 export function buildSessionPool(words){ return shuffle(words.map(w=>({...w, lvl:w.lvl ?? 2}))); }
