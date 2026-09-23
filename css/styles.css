@@ -135,6 +135,24 @@ body{ margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-fa
 .right-ans{ color:var(--success-dark); }
 .mistake-rows .arrow{ color:var(--ink-faint); }
 
+/* Lives mode toggle + in-run hearts */
+.lives-toggle{ display:flex; align-items:center; gap:7px; font-size:0.85rem; font-weight:700;
+  color:var(--ink-soft); margin-bottom:14px; cursor:pointer; }
+.lives-toggle input{ width:16px; height:16px; accent-color:var(--pink); cursor:pointer; }
+.lives-row{ font-size:0.95rem; letter-spacing:1px; }
+
+/* Leaderboard */
+.leaderboard-list{ list-style:none; padding:0; margin:8px 0; width:100%; max-width:320px;
+  display:flex; flex-direction:column; gap:6px; }
+.leaderboard-row{ display:flex; align-items:center; gap:10px; background:var(--surface);
+  border:2px solid var(--border-neutral); border-radius:12px; padding:9px 14px; font-weight:700; }
+.leaderboard-rank{ color:var(--ink-faint); font-size:0.85rem; width:2.2em; }
+.leaderboard-name{ flex:1; text-align:left; color:var(--ink); }
+.leaderboard-score{ color:var(--pink); font-family:var(--font-display); }
+.name-input{ flex:1; padding:12px 14px; border-radius:12px; border:2px solid var(--border-neutral);
+  background:var(--surface); font-family:var(--font-ui); font-size:1rem; color:var(--ink);
+  text-align:center; min-width:0; }
+
 /* Stub screens */
 .stub-screen{ align-items:center; justify-content:center; text-align:center; gap:10px; }
 .stub-emoji{ font-size:2.4rem; }

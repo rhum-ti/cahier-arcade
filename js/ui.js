@@ -2,12 +2,14 @@
 import { loadAllVocab, LEVELS, levelName, STARTER_VOCAB, THEME_SESSIONS } from "./data.js";
 import {
   buildPool, buildSessionPool, createDirectionPicker, genTranslationQuestion, baseScore,
-  loadBest, saveBest, loadStreak, loadDone, markDone
+  loadBest, saveBest, loadStreak, loadDone, markDone,
+  loadLeaderboard, saveLeaderboard, qualifiesForLeaderboard, withLeaderboardEntry, escapeHtml
 } from "./game.js";
 
 /* How many words per level enter an endless-mode pool. Keeps level progression snappy
    regardless of the underlying vocab size (see buildPool's perLevel param). */
 const WORDS_PER_LEVEL = 25;
+const STARTING_LIVES = 3;
 
 const app = document.getElementById("app");
 let best = loadBest();
@@ -15,10 +17,17 @@ let streakDays = loadStreak();
 let doneThemes = loadDone();
 let allVocab = null;
 
-let pool=[], chain=0, score=0, multiplier=1, locked=false, current=null;
+let pool=[], chain=0, totalCorrect=0, score=0, multiplier=1, locked=false, current=null;
 let timerId=null, timeLimit=6000, remaining=6000;
 let mode="endless", activeSession=null, lastMistake=null;
 let directionPicker = createDirectionPicker();
+
+/* "3 lives" mode: a wrong answer costs a life instead of ending the run immediately.
+   livesMode is the toggle (chosen before starting); lives/flawless are per-run state. */
+let livesMode = false;
+let lives = 1;
+let flawless = true;
+let leaderboardSaved = false;
 
 /* ---------- Home ---------- */
 function renderHome(){
@@ -43,11 +52,38 @@ function renderHome(){
         </span>
         <span class="badge">${THEME_SESSIONS.length} défis</span>
       </button>
-      <button class="back" id="creditsLink" style="align-self:center; margin-top:6px;">Crédits</button>
+      <div class="btn-row" style="justify-content:center; margin-top:4px;">
+        <button class="back" id="leaderboardLink">🏆 Classement</button>
+        <button class="back" id="creditsLink">Crédits</button>
+      </div>
     </div>`;
   document.getElementById("cardTrad").onclick = goToLevelSelect;
   document.getElementById("cardTheme").onclick = renderThemeList;
   document.getElementById("creditsLink").onclick = renderCredits;
+  document.getElementById("leaderboardLink").onclick = renderLeaderboard;
+}
+
+function renderLeaderboard(){
+  const entries = loadLeaderboard();
+  app.innerHTML = `
+    <div class="screen home-screen">
+      <button class="back" id="backBtn">← Retour</button>
+      <h1 class="home-title" style="font-size:1.6rem; margin-top:10px;">🏆 Classement</h1>
+      <p class="home-sub">Meilleurs scores en mode Traduction, sur cet appareil.</p>
+      ${entries.length===0 ? `
+        <p class="home-sub">Aucun score encore — sois le premier !</p>
+      ` : `
+        <ol class="leaderboard-list">
+          ${entries.map((e,i)=>`
+            <li class="leaderboard-row">
+              <span class="leaderboard-rank">#${i+1}</span>
+              <span class="leaderboard-name">${escapeHtml(e.name)}</span>
+              <span class="leaderboard-score">${e.score}</span>
+            </li>`).join("")}
+        </ol>
+      `}
+    </div>`;
+  document.getElementById("backBtn").onclick = renderHome;
 }
 
 /* Ensures the (large, lazily-fetched) endless-mode vocab is loaded before showing level
@@ -109,7 +145,11 @@ function renderThemeList(){
     <div class="screen home-screen">
       <button class="back" id="backBtn">← Retour</button>
       <h1 class="home-title" style="font-size:1.6rem; margin-top:10px;">Défis à thème</h1>
-      <p class="home-sub">Vocabulaire TCF Canada — chaque défi se joue d'une traite, une erreur y met fin.</p>
+      <p class="home-sub">Vocabulaire TCF Canada — ${livesMode ? `${STARTING_LIVES} erreurs autorisées par défi.` : "chaque défi se joue d'une traite, une erreur y met fin."}</p>
+      <label class="lives-toggle">
+        <input type="checkbox" id="livesToggle" ${livesMode ? "checked" : ""}>
+        🎮 Mode ${STARTING_LIVES} vies
+      </label>
       ${THEME_SESSIONS.map(s=>`
         <button class="mode-card" data-id="${s.id}">
           <span class="emoji">${s.emoji}</span>
@@ -121,6 +161,7 @@ function renderThemeList(){
         </button>`).join("")}
     </div>`;
   document.getElementById("backBtn").onclick = renderHome;
+  document.getElementById("livesToggle").onchange = (e)=>{ livesMode = e.target.checked; renderThemeList(); };
   document.querySelectorAll(".mode-card[data-id]").forEach(b=>{
     b.onclick = ()=>{
       const session = THEME_SESSIONS.find(s=>s.id===b.dataset.id);
@@ -136,11 +177,16 @@ function renderLevelSelect(){
       <button class="back" id="backBtn">← Retour</button>
       <div class="lvl-title">Par quel niveau on commence ?</div>
       <p class="lvl-sub">La difficulté grimpe automatiquement ensuite — record : ${best} · 🔥 ${streakDays} jour${streakDays>1?"s":""} de suite</p>
+      <label class="lives-toggle">
+        <input type="checkbox" id="livesToggle" ${livesMode ? "checked" : ""}>
+        🎮 Mode ${STARTING_LIVES} vies
+      </label>
       <div class="lvl-grid" id="lvlGrid">
         ${LEVELS.map(l=>`<button class="lvl-chip" data-lvl="${l.lvl}">${l.name}</button>`).join("")}
       </div>
     </div>`;
   document.getElementById("backBtn").onclick = renderHome;
+  document.getElementById("livesToggle").onchange = (e)=>{ livesMode = e.target.checked; renderLevelSelect(); };
   document.querySelectorAll(".lvl-chip").forEach(b=>{
     b.onclick = ()=>startTranslationRun(parseInt(b.dataset.lvl,10));
   });
@@ -150,7 +196,8 @@ function renderLevelSelect(){
 function startTranslationRun(startLevel){
   mode="endless"; activeSession=null;
   pool = buildPool(startLevel, allVocab, 4, WORDS_PER_LEVEL);
-  chain=0; score=0; multiplier=1; locked=false; lastMistake=null;
+  chain=0; totalCorrect=0; score=0; multiplier=1; locked=false; lastMistake=null;
+  lives = livesMode ? STARTING_LIVES : 1; flawless=true; leaderboardSaved=false;
   directionPicker = createDirectionPicker();
   nextQuestion();
 }
@@ -158,7 +205,8 @@ function startTranslationRun(startLevel){
 function startThemedRun(session){
   mode="theme"; activeSession=session;
   pool = buildSessionPool(session.words);
-  chain=0; score=0; multiplier=1; locked=false; lastMistake=null;
+  chain=0; totalCorrect=0; score=0; multiplier=1; locked=false; lastMistake=null;
+  lives = livesMode ? STARTING_LIVES : 1; flawless=true;
   directionPicker = createDirectionPicker();
   nextQuestion();
 }
@@ -190,7 +238,20 @@ function handleTimeout(){
     if(b.textContent===current.correct) b.classList.add("correct");
   });
   lastMistake = { dir:current.dir, word:current.word, yourAnswer:"—", correctAnswer:current.correct };
-  setTimeout(()=>endRun(false), 1600);
+  registerMistakeThenContinue();
+}
+
+/* Costs a life. With lives remaining, the run continues (combo/multiplier reset, since a
+   miss breaks the streak) after the usual reveal delay; otherwise the run ends as before. */
+function registerMistakeThenContinue(){
+  flawless = false;
+  lives--;
+  if(lives<=0){
+    setTimeout(()=>endRun(false), 1600);
+  } else {
+    chain = 0; multiplier = 1;
+    setTimeout(nextQuestion, 1600);
+  }
 }
 
 function updateTimerBar(){
@@ -207,6 +268,7 @@ function renderRun(){
       <div class="run-top">
         <div class="run-head-row">
           <span class="lvl-badge">${mode==="theme" ? activeSession.title : levelName(current.lvl)}</span>
+          ${livesMode ? `<span class="lives-row">${"❤️".repeat(lives)}${"🖤".repeat(STARTING_LIVES-lives)}</span>` : ''}
           <span class="mult-tag">x${multiplier}</span>
         </div>
         <div class="timerbar-track"><div class="timerbar-fill" id="timerFill"></div></div>
@@ -239,7 +301,7 @@ function handleAnswer(opt, btnEl){
     else if(b===btnEl && !correct) b.classList.add("wrong");
   });
   if(correct){
-    chain++;
+    chain++; totalCorrect++;
     if(chain%5===0){ multiplier*=2; showCombo("COMBO x"+multiplier); }
     const base = baseScore(current.lvl);
     score += base*multiplier;
@@ -247,7 +309,7 @@ function handleAnswer(opt, btnEl){
     setTimeout(nextQuestion, 380);
   } else {
     lastMistake = { dir:current.dir, word:current.word, yourAnswer:opt, correctAnswer:current.correct };
-    setTimeout(()=>endRun(false), 1600);
+    registerMistakeThenContinue();
   }
 }
 
@@ -274,16 +336,19 @@ function endRun(exhausted){
     if(isRecord){ best=score; saveBest(best); }
   }
   if(mode==="theme" && exhausted){ markDone(activeSession.id); doneThemes = loadDone(); }
-  renderEnd(isRecord, exhausted);
+  const qualifiesForBoard = mode==="endless" && !leaderboardSaved && qualifiesForLeaderboard(score, loadLeaderboard());
+  renderEnd(isRecord, exhausted, qualifiesForBoard);
 }
 
-function renderEnd(isRecord, exhausted){
+function renderEnd(isRecord, exhausted, qualifiesForBoard){
   const themeDone = mode==="theme" && exhausted;
   let chainMsg;
   if(mode==="endless"){
-    chainMsg = exhausted ? "Série sans faute jusqu'au bout — bravo !" : `Chaîne : ${chain} mot${chain>1?"s":""}`;
+    chainMsg = (exhausted && flawless)
+      ? "Série sans faute jusqu'au bout — bravo !"
+      : `${totalCorrect} bonne${totalCorrect>1?"s":""} réponse${totalCorrect>1?"s":""}`;
   } else {
-    chainMsg = themeDone ? `Défi terminé : ${activeSession.title} 🎉` : `Interrompu à ${chain} / ${activeSession.words.length} mots`;
+    chainMsg = themeDone ? `Défi terminé : ${activeSession.title} 🎉` : `Interrompu à ${totalCorrect} / ${activeSession.words.length} mots`;
   }
   app.innerHTML = `
     <div class="screen end-screen">
@@ -301,6 +366,14 @@ function renderEnd(isRecord, exhausted){
         </div>` : ''}
       <p class="end-score">${score}</p>
       ${mode==="endless" ? `<p class="best-line">Record : ${best}</p>` : ''}
+      ${qualifiesForBoard ? `
+        <div class="mistake-box" id="leaderboardForm">
+          <div class="mistake-tag">🏆 Score dans le top 10 !</div>
+          <div class="btn-row" style="margin-top:8px;">
+            <input type="text" id="leaderboardName" maxlength="12" placeholder="Ton pseudo" class="name-input">
+            <button class="btn3d" id="leaderboardSubmit">Valider</button>
+          </div>
+        </div>` : ''}
       <div class="btn-row">
         <button class="btn3d" id="retryBtn">${mode==="theme" ? "Réessayer" : "Rejouer"}</button>
         <button class="back" id="backNavBtn">${mode==="theme" ? "Autres défis" : "Accueil"}</button>
@@ -308,6 +381,17 @@ function renderEnd(isRecord, exhausted){
     </div>`;
   document.getElementById("retryBtn").onclick = mode==="theme" ? ()=>startThemedRun(activeSession) : renderLevelSelect;
   document.getElementById("backNavBtn").onclick = mode==="theme" ? renderThemeList : renderHome;
+  if(qualifiesForBoard){
+    const nameInput = document.getElementById("leaderboardName");
+    const submit = ()=>{
+      saveLeaderboard(withLeaderboardEntry(loadLeaderboard(), nameInput.value, score));
+      leaderboardSaved = true;
+      renderEnd(isRecord, exhausted, false);
+    };
+    document.getElementById("leaderboardSubmit").onclick = submit;
+    nameInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter") submit(); });
+    nameInput.focus();
+  }
 }
 
 export function init(){

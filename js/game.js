@@ -96,3 +96,38 @@ export function markDone(id){
     if(!done.includes(id)){ done.push(id); localStorage.setItem(STORE_DONE, JSON.stringify(done)); }
   }catch(e){}
 }
+
+/* ---------- Local leaderboard (per-device, no server — like an arcade cabinet's own
+   high-score table) ---------- */
+export const STORE_LEADERBOARD = "cahierarcade_leaderboard";
+const LEADERBOARD_MAX = 10;
+
+export function loadLeaderboard(){
+  try{ return JSON.parse(localStorage.getItem(STORE_LEADERBOARD)||"[]"); }catch(e){ return []; }
+}
+export function saveLeaderboard(entries){
+  try{ localStorage.setItem(STORE_LEADERBOARD, JSON.stringify(entries)); }catch(e){}
+}
+
+export function qualifiesForLeaderboard(score, entries, maxEntries=LEADERBOARD_MAX){
+  if(score<=0) return false;
+  if(entries.length<maxEntries) return true;
+  return score>Math.min(...entries.map(e=>e.score));
+}
+
+/* Pure: returns a new, sorted, capped entry list rather than mutating — the caller
+   (ui.js) is responsible for persisting it via saveLeaderboard. */
+export function withLeaderboardEntry(entries, name, score, maxEntries=LEADERBOARD_MAX){
+  const cleanName = (name||"").trim().slice(0,12) || "???";
+  const next = [...entries, { name:cleanName, score, date:new Date().toISOString().slice(0,10) }];
+  next.sort((a,b)=>b.score-a.score);
+  return next.slice(0,maxEntries);
+}
+
+/* Player-supplied text (the leaderboard pseudo) ends up interpolated into innerHTML
+   elsewhere in the app — unlike the developer-authored vocab data, this needs escaping. */
+export function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[c]));
+}

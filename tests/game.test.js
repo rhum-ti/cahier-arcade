@@ -3,7 +3,8 @@ import {
   shuffle, sample, buildPool, createDirectionPicker, pickDistractorPool,
   genTranslationQuestion, buildSessionPool, baseScore,
   loadBest, saveBest, loadStreak, loadDone, markDone,
-  STORE_BEST, STORE_STREAK, STORE_DONE,
+  loadLeaderboard, saveLeaderboard, qualifiesForLeaderboard, withLeaderboardEntry, escapeHtml,
+  STORE_BEST, STORE_STREAK, STORE_DONE, STORE_LEADERBOARD,
 } from "../js/game.js";
 
 function multiset(arr){ return [...arr].sort(); }
@@ -269,5 +270,79 @@ describe("storage helpers", () => {
     expect(loadStreak()).toBe(1);
     vi.setSystemTime(new Date("2026-01-13T12:00:00Z"));
     expect(loadStreak()).toBe(1);
+  });
+
+  it("loadLeaderboard defaults to an empty array", () => {
+    expect(loadLeaderboard()).toEqual([]);
+  });
+
+  it("saveLeaderboard/loadLeaderboard round-trip", () => {
+    const entries = [{ name:"ABC", score:100, date:"2026-01-01" }];
+    saveLeaderboard(entries);
+    expect(loadLeaderboard()).toEqual(entries);
+    expect(JSON.parse(localStorage.getItem(STORE_LEADERBOARD))).toEqual(entries);
+  });
+});
+
+describe("qualifiesForLeaderboard", () => {
+  it("rejects a score of zero or less", () => {
+    expect(qualifiesForLeaderboard(0, [])).toBe(false);
+    expect(qualifiesForLeaderboard(-10, [])).toBe(false);
+  });
+
+  it("any positive score qualifies while the board has room", () => {
+    const entries = [{ name:"A", score:50 }];
+    expect(qualifiesForLeaderboard(1, entries, 10)).toBe(true);
+  });
+
+  it("once full, only a score beating the current lowest qualifies", () => {
+    const entries = [{ name:"A", score:30 }, { name:"B", score:20 }];
+    expect(qualifiesForLeaderboard(25, entries, 2)).toBe(true);
+    expect(qualifiesForLeaderboard(15, entries, 2)).toBe(false);
+    expect(qualifiesForLeaderboard(20, entries, 2)).toBe(false); // tie doesn't bump the incumbent
+  });
+});
+
+describe("withLeaderboardEntry", () => {
+  it("inserts the new entry in score-descending order", () => {
+    const entries = [{ name:"A", score:100 }, { name:"B", score:50 }];
+    const next = withLeaderboardEntry(entries, "C", 75);
+    expect(next.map(e => e.name)).toEqual(["A", "C", "B"]);
+  });
+
+  it("caps the list at maxEntries, dropping the lowest score", () => {
+    const entries = [{ name:"A", score:100 }, { name:"B", score:90 }];
+    const next = withLeaderboardEntry(entries, "C", 50, 2);
+    expect(next).toHaveLength(2);
+    expect(next.map(e => e.name)).toEqual(["A", "B"]);
+  });
+
+  it("trims whitespace and caps the name length to 12 characters", () => {
+    const next = withLeaderboardEntry([], "  ThisNameIsWayTooLong  ", 10);
+    expect(next[0].name).toHaveLength(12);
+    expect(next[0].name).toBe("ThisNameIsWa");
+  });
+
+  it("falls back to a placeholder name when given an empty/blank name", () => {
+    expect(withLeaderboardEntry([], "", 10)[0].name).toBe("???");
+    expect(withLeaderboardEntry([], "   ", 10)[0].name).toBe("???");
+  });
+
+  it("does not mutate the input array", () => {
+    const entries = [{ name:"A", score:100 }];
+    const copy = [...entries];
+    withLeaderboardEntry(entries, "B", 50);
+    expect(entries).toEqual(copy);
+  });
+});
+
+describe("escapeHtml", () => {
+  it("escapes the HTML-significant characters", () => {
+    expect(escapeHtml(`<script>alert("hi") & 'bye'</script>`))
+      .toBe("&lt;script&gt;alert(&quot;hi&quot;) &amp; &#39;bye&#39;&lt;/script&gt;");
+  });
+
+  it("leaves ordinary text untouched", () => {
+    expect(escapeHtml("ABC 123")).toBe("ABC 123");
   });
 });
